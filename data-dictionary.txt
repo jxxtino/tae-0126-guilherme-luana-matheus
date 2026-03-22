@@ -1,0 +1,18 @@
+Os dados iniciais foram obtidos	através da API oficial do Google Earth Engine, selecionando somente imagens que cubram o município de Santos, situado no litoral do estado de São Paulo, durante o período 2021-2025. As observações estão agrupadas por mês e bairro e a presença de valores ausentes se deve ao filtro de nuvens realizado durante o processo de coleta.
+
+Siglas:
+
+NDBI 	Normalized Difference Built-up Index	(Índice de Urbanização por Diferença Normalizada) 
+NDVI	Normalized Difference Vegetation Index 	(Índice de Vegetação por Diferença Normalizada)
+LST	Land Surface Temperature 		(Temperatura Superficial Terrestre)
+
+Dicionário:
+
+NDBI_mean	média do índice de urbanização
+NDBI_stdDev	desvio padrão do índice de urbanização
+NDVI_mean	média do índice de vegetação
+NDVI_stdDev	desvio padrão do índice de vegetação
+NOME		representa o nome do bairro
+date		ano e mês da observação (YYYY-MM)
+LST_mean	média da temperatura superficial terrestre (Kelvin)
+LST_stdDev	desvio padrão da temperatura superficial terrestre
