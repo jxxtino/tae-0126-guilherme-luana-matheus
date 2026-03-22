@@ -6,7 +6,7 @@ library(lubridate)
 
 ## ======= DATA LOADING ========================================================
 
-df_raw <- read.csv("data/raw/santos_environmental_indicators.csv", sep = ",")
+df_raw <- read.csv("data/01-raw/santos_environmental_indicators.csv", sep = ",")
 df_clean <- df_raw 
 
 ## ======= DATA INSPECTION ===================================================== 
@@ -130,7 +130,7 @@ barplot(
 
 ## ======= DATA SAVE ===========================================================
 
-dir.create("data/02-processed", recursive = TRUE)
+dir.create("data/02-processed")
 
 write.table(df_clean, 
             "data/02-processed/df_clean.txt", 
@@ -140,5 +140,10 @@ write.table(df_clean,
 
 write.table(df_stats, 
             "data/02-processed/df_stats.txt", 
+            sep = ";",
             row.names = FALSE, 
             fileEncoding = "UTF-8")
+
+
+
+
