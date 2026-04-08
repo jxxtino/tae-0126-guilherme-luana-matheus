@@ -1,17 +1,28 @@
+## install.packages("stringi")
 ## install.packages("dplyr")
+## install.packages("ggcorrplot")
 ## install.packages("lubridate")
+## install.packages("fitdistrplus")
 
+
+library(MASS)
 library(dplyr)
+library(stringi)
 library(lubridate)
+library(ggcorrplot)
+library(fitdistrplus)
 
 ## ======= DATA LOADING ========================================================
 
-df_raw <- read.csv("data/01-raw/santos_environmental_indicators.csv", sep = ",")
-df_clean <- df_raw 
+df <- read.csv(
+  "data/01-raw/santos_environmental_indicators.csv", 
+  sep = ",", 
+  fileEncoding = "UTF-8"
+)
 
 ## ======= DATA INSPECTION ===================================================== 
 
-df_clean %>% 
+df %>% 
   {
     ## variable types 
     print(sapply(., class))
@@ -28,109 +39,75 @@ df_clean %>%
 
 ## ======= DATA CLEANING =======================================================
 
-df_clean <- df_clean %>%
+df_clean <- df %>%
   
-  ## columns to lower case
+  # columns to lower case
   rename_with(tolower) %>%
-
-  ## char trim 
+  
+  # text normalization
+  mutate(nome = stri_trans_general(nome, "Latin-ASCII")) %>%
+  
+  # char trim
   mutate(nome = trimws(nome)) %>%
   
-
-  ## drop unnecessary columns
-  select(-mean, -stddev) %>%
+  # type conversion
+  mutate(date = ym(date), year = year(date), district = as.factor(nome)) %>%
   
-  ## feature engineering
-  mutate(ndvi_class = case_when(
+  # lst join & conversion
+  mutate(
+    lst_mean = coalesce(lst_mean, mean),
+    lst_stddev = coalesce(lst_stddev, stddev),
+    lst_mean = abs(lst_mean - 273.15)
+  ) %>%
+  
+  # feature engineering
+  mutate(ndvi_class = factor(
+    case_when(
       ndvi_mean <= 0 ~ "non-vegetation",
       ndvi_mean > 0 & ndvi_mean <= 0.33 ~ "bare-soil",
       ndvi_mean > 0.33 & ndvi_mean <= 0.60 ~ "light-vegetation",
-      ndvi_mean > 0.60 ~ "dense-vegetation"),
-      lst_mean = (lst_mean-273.15)
+      ndvi_mean > 0.60 ~ "dense-vegetation"), 
+    ordered = TRUE,
+    levels=c("non-vegetation","bare-soil","light-vegetation","dense-vegetation")
+  ),
   ) %>%
   
-  ## type conversion
-  mutate(
-    district = as.factor(nome),
-    date_obs = ym(date),
-    ndvi_class = factor(ndvi_class,
-                        levels=c("non-vegetation",
-                                "bare-soil",
-                                "light-vegetation",
-                                "dense-vegetation"), 
-                       ordered=TRUE),
-  ) %>%
-
-  ## feature selection
-  select(date_obs, 
-         district,
-         ndvi_class,
-         ndvi_mean,
-         ndvi_stddev,
-         ndbi_mean,
-         ndbi_stddev,
-         lst_mean,
-         lst_stddev
+  # feature selection
+  dplyr::select(
+    year,
+    date,
+    district,
+    ndvi_class,
+    ndvi_mean,
+    ndbi_mean,
+    lst_mean,
+    ndvi_stddev,
+    ndbi_stddev,
+    lst_stddev
   )
 
-## ======= DATA AGGREGATION ====================================================
+## ======= DATA SUMMARY ========================================================
 
 df_stats <- df_clean %>%
   group_by(district) %>%
-    summarise(
-      d_ndvi_mean = mean(ndvi_mean, na.rm = TRUE),
-      d_ndbi_mean = mean(ndbi_mean, na.rm = TRUE),
-      d_lst_mean = mean(lst_mean, na.rm = TRUE),
-      
-      d_ndvi_median = median(ndvi_mean, na.rm = TRUE),
-      d_ndbi_median = median(ndbi_mean, na.rm = TRUE),
-      d_lst_median = median(lst_mean, na.rm = TRUE),
-      
-      d_ndvi_std = sd(ndvi_mean, na.rm = TRUE),
-      d_ndbi_std = sd(ndbi_mean, na.rm = TRUE),
-      d_lst_std = sd(lst_mean, na.rm = TRUE)
-    )
-
-df_stats
-
-## ======= DATA VISUALIZATION ==================================================
-
-## box plot
-boxplot(
-  df_stats$d_ndvi_mean,
-  main = "SANTOS 2021-2025 MEAN NDVI",
-  ylab = "NDVI VALUE",
-  ylim = c(0,1),
-  col = "lightgreen"
-)
-
-## histogram
-hist(
-  df_stats$d_lst_mean, 
-  main = "SANTOS 2021-2025 MEAN LST",
-  ylab = "COUNT",
-  xlab = "LST CELSIUS",
-  xlim = c(19,28),
-  col = "lightcoral"
+  summarise(
+    d_ndvi_mean = mean(ndvi_mean, na.rm = TRUE),
+    d_ndbi_mean = mean(ndbi_mean, na.rm = TRUE),
+    d_lst_mean = mean(lst_mean, na.rm = TRUE),
+    
+    d_ndvi_median = median(ndvi_mean, na.rm = TRUE),
+    d_ndbi_median = median(ndbi_mean, na.rm = TRUE),
+    d_lst_median = median(lst_mean, na.rm = TRUE),
+    
+    d_ndvi_std = sd(ndvi_mean, na.rm = TRUE),
+    d_ndbi_std = sd(ndbi_mean, na.rm = TRUE),
+    d_lst_std = sd(lst_mean, na.rm = TRUE)
   )
-
-## bar plot
-par(mar = c(10, 4, 4, 2))
-
-barplot(
-  df_stats$d_ndvi_mean[
-    order(df_stats$d_ndvi_mean, decreasing=TRUE)[1:10]],
-  names.arg = df_stats$district[
-    order(df_stats$d_ndvi_mean, decreasing=TRUE)[1:10]],
-  main = "SANTOS 2021-2025 TOP 10 NDVI DISTRICTS",
-  ylim = c(0,1),
-  las = 2,
-  col = "lightgreen"
-)
 
 ## ======= DATA SAVE ===========================================================
 
-dir.create("data/02-processed")
+dir.create("data/02-processed", recursive = TRUE)
+dir.create("output/01-charts", recursive = TRUE)
 
 write.table(df_clean, 
             "data/02-processed/df_clean.txt", 
@@ -144,6 +121,112 @@ write.table(df_stats,
             row.names = FALSE, 
             fileEncoding = "UTF-8")
 
+## ======= DATA PLOTS ==========================================================
 
+# box plot
+png("output/01-charts/santos-2021-2025-mean-ndvi.png", width = 800, height = 600)
 
+boxplot(
+  df_stats$d_ndvi_mean,
+  main = "SANTOS 2021-2025 MEAN NDVI",
+  ylab = "NDVI VALUE",
+  ylim = c(0,1),
+  col = "lightgreen"
+)
 
+dev.off()
+
+# histogram
+png("output/01-charts/santos-2021-2025-mean-lst.png", width = 800, height = 600)
+
+hist(
+  df_stats$d_lst_mean, 
+  main = "SANTOS DISTRICTS 2021-2025 MEAN LST COUNT",
+  ylab = "COUNT",
+  xlab = "LST CELSIUS",
+  col = "lightcoral"
+)
+
+dev.off()
+
+# bar plot
+par(mar = c(10, 4, 4, 2))
+
+png("output/01-charts/santos-2021-2025-top-10-ndvi-districts.png", 
+    width = 800, height = 600)
+
+barplot(
+  df_stats$d_ndvi_mean[
+    order(df_stats$d_ndvi_mean, decreasing=TRUE)[1:10]],
+  names.arg = df_stats$district[
+    order(df_stats$d_ndvi_mean, decreasing=TRUE)[1:10]],
+  main = "SANTOS 2021-2025 TOP 10 NDVI DISTRICTS",
+  ylim = c(0,1),
+  las = 2,
+  col = "lightgreen"
+)
+
+dev.off()
+
+## ======= DIST PLOT ==========================================================
+
+par(mar = c(5, 4, 4, 2))
+
+ndvi_fit_norm <- fitdist(
+  df_clean$ndvi_mean[!is.na(df_clean$ndbi_mean) & df_clean$ndvi_mean > 0],
+  "lnorm")
+
+plot(ndvi_fit_norm)
+
+## ======= CORR PLOTS ==========================================================
+
+# ndvi x lst corr test
+cor.test(df_stats$d_ndvi_mean, 
+         df_stats$d_lst_mean)
+
+# ndvi x lst plot
+plot(
+  df_stats$d_ndvi_mean, 
+  df_stats$d_lst_mean,
+  main = "NDVI x LST",
+  xlab = "NDVI MEAN",
+  ylab = "LST MEAN")
+
+# ndvi x ndbi corr test
+cor.test(df_stats$d_ndvi_mean, 
+         df_stats$d_ndbi_mean)
+
+# ndvi x ndbi plot
+plot(
+  df_stats$d_ndvi_mean, 
+  df_stats$d_ndbi_mean,
+  main = "NDVI x NDBI",
+  xlab = "NDVI MEAN",
+  ylab = "NDBI MEAN")
+legend("topright", legend = (cor(df_stats$d_ndvi_mean, df_stats$d_ndbi_mean)))
+
+# lst x ndbi corr test
+cor.test(df_stats$d_lst_mean, 
+         df_stats$d_ndbi_mean)
+
+# lst x ndbi plot
+plot(
+  df_stats$d_lst_mean, 
+  df_stats$d_ndbi_mean,
+  main = "LST x NDBI",
+  xlab = "LST MEAN",
+  ylab = "NDBI MEAN"
+)
+legend("topleft", legend = (cor(df_stats$d_lst_mean, df_stats$d_ndbi_mean)))
+
+# corr matrix
+corr_matrix <- round(cor(df_stats[, c(2,3,4)]), 2)
+
+# corr matrix plot
+ggcorrplot(
+  corr_matrix,
+  hc.order = TRUE,
+  type = "lower",
+  outline.color = "white",
+  lab = TRUE
+)
