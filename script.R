@@ -230,3 +230,15 @@ ggcorrplot(
   outline.color = "white",
   lab = TRUE
 )
+
+modelo_alfa <- lm(d_lst_mean ~ d_ndvi_mean, data = df_stats)
+modelo_beta <- lm(d_lst_mean ~ log(d_ndvi_mean), data = df_stats)
+summary(modelo_alfa)
+summary(modelo_beta)
+
+plot(df_stats$d_ndvi_mean, df_stats$d_lst_mean,
+     main = "Comparação LM Alfa vs Beta",
+     xlab = "NDVI",
+     ylab = "LST")
+
+abline(modelo_alfa, col = "blue")
