@@ -242,3 +242,8 @@ plot(df_stats$d_ndvi_mean, df_stats$d_lst_mean,
      ylab = "LST")
 
 abline(modelo_alfa, col = "blue")
+
+curve(coef(modelo_beta)[1] + coef(modelo_beta)[2]*log(x),
+      add = TRUE, col = "red")
+
+AIC(modelo_alfa, modelo_beta)
