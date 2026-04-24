@@ -231,19 +231,52 @@ ggcorrplot(
   lab = TRUE
 )
 
-modelo_alfa <- lm(d_lst_mean ~ d_ndvi_mean, data = df_stats)
-modelo_beta <- lm(d_lst_mean ~ log(d_ndvi_mean), data = df_stats)
-summary(modelo_alfa)
-summary(modelo_beta)
+## ======= ALPHA & BETA ========================================================
 
-plot(df_stats$d_ndvi_mean, df_stats$d_lst_mean,
-     main = "Comparação LM Alfa vs Beta",
-     xlab = "NDVI",
-     ylab = "LST")
+x <- df_stats$d_lst_mean
+Y <- df_stats$d_ndbi_mean
+n <- length(x)
 
-abline(modelo_alfa, col = "blue")
+# -1.77475
+beta <- (sum(x * Y) - n * mean(x) * mean(Y)) / (sum(x**2) - n * mean(x)**2)
 
-curve(coef(modelo_beta)[1] + coef(modelo_beta)[2]*log(x),
-      add = TRUE, col = "red")
+# 0.64984
+alpha <- mean(Y) - beta * mean(x)
 
-AIC(modelo_alfa, modelo_beta)
+# -1.77
+beta_lm <- coef(lm(Y ~ x))[2]    
+
+# 0.065
+alpha_lm <- coef(lm(Y ~ x))[1]    
+
+get_coefficients <- function(df, x, y){
+  x <- df[[x]]
+  y <- df[[y]]
+  
+  if (length(x) != length(y)) {
+    stop("columns must have the same length")
+  }
+  
+  n <- length(x)
+  b <- (sum(x * y) - n * mean(x) * mean(y)) / (sum(x**2) - n * mean(x)**2)
+  a <- mean(y) - b * mean(x)
+  
+  return(list(alpha = a, beta = b))
+}
+
+result <- get_coefficients(df_stats, "d_lst_mean", "d_ndbi_mean")
+
+plot(x, Y)
+abline(b = result$beta, a = result$alpha, col = "blue", lwd = 5)
+abline(b = beta_lm, a = alpha_lm, col = "yellow", lwd = 3)
+
+# -3.31e-14
+beta_diff <- result$beta - beta_lm
+
+# 1.24e-14
+alpha_diff <- result$alpha - alpha_lm
+
+
+  
+  
+
